@@ -1,6 +1,9 @@
 package com.robot.widget;
 
 import java.util.ArrayList;
+
+import com.uzmap.pkg.uzmodules.uzbrokenLine.utils.XLabels;
+
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -34,6 +37,7 @@ public class LineChart extends View {
 	private int moveOffset = 0;
 	
 	private Bitmap bgBitmap;
+	
 	private int bgColor = Color.TRANSPARENT;
 	
 	private int[] colors = {0xffcb3d1b, 0xfff6a800, 0xfffff100, 0xff00a13f, 0xff007db0, 0xff142a8c ,0xffa51466};
@@ -83,6 +87,7 @@ public class LineChart extends View {
 		this.chartHeight = getHeight();
 
 		if (isFirst) {
+			borderWidth = getYLabelWidth();
 			init();
 			isFirst = false;
 		}
@@ -95,21 +100,25 @@ public class LineChart extends View {
 		// draw chart background
 		drawChartBg(canvas);
 		
-		// draw Y Axis
-		drawYAxis(canvas);
-		drawYAxisLabel(canvas);
-
+		
 		// draw X Axis
 		drawXAxis(canvas);
 		drawXAxisLabel(canvas);
 
+		// draw Y Axis
+		drawYAxis(canvas);
 		// draw data line
 		drawLine(canvas);
+		
+		
+		drawYAxisLabel(canvas);
 		
 		// draw baseLine
 		drawBaseLine(canvas);
 
 	}
+	
+	private ArrayList<Point> xPoints = new ArrayList<Point>();
 
 	public void init() {
 
@@ -130,6 +139,14 @@ public class LineChart extends View {
 				lineData.point = point;
 
 			}
+		}
+		
+		for(int i=0; i< xLabels.size(); i++){
+			
+			Point point = new Point();
+			point.x = i * unit + borderWidth;
+			xPoints.add(point);
+
 		}
 
 	}
@@ -155,6 +172,11 @@ public class LineChart extends View {
 			canvas.drawBitmap(bgBitmap, src, target, yAxisPaint);
 			
 		} else {
+			
+			target.left = 0;
+			target.top = 0;
+			target.right = chartWidth;
+			target.bottom = chartHeight;
 			bgPaint.setColor(bgColor);
 			canvas.drawRect(target, bgPaint);
 		}
@@ -300,6 +322,10 @@ public class LineChart extends View {
 	 */
 	private ArrayList<ArrayList<LineData>> datas = new ArrayList<ArrayList<LineData>>();
 	
+	public ArrayList<ArrayList<LineData>> getDatas(){
+		return datas;
+	}
+	
 	/**
 	 * x 轴的标签数组
 	 */
@@ -313,6 +339,9 @@ public class LineChart extends View {
 		this.datas = datas;
 	}
 
+	private Rect coverRect = new Rect();
+	private Paint coverRecrPaint = new Paint();
+	
 	public void drawYAxis(Canvas canvas) {
 		canvas.drawLine(borderWidth, 0, borderWidth, chartHeight, yAxisPaint);
 	}
@@ -320,9 +349,22 @@ public class LineChart extends View {
 	private Rect yLabelRect = new Rect();
 
 	public void drawYAxisLabel(Canvas canvas) {
+		
+		coverRect.left = 0;
+		coverRect.top = 0;
+		coverRect.right = borderWidth - DensityUtil.dip2px(getContext(), 2);
+		coverRect.bottom = chartHeight;
+		
+		coverRecrPaint.setColor(bgPaint.getColor());
+		coverRecrPaint.setStyle(Style.FILL);
+		canvas.drawRect(coverRect, coverRecrPaint);
 
 		yAxisLabelPaint.setAntiAlias(true);
 		int unit = (maxValue - minValue) / step;
+		
+		if(unit <= 0){
+			return;
+		}
 		int avgHeight = chartHeight / unit;
 
 		int minValuePointY = chartHeight;
@@ -330,12 +372,23 @@ public class LineChart extends View {
 		for (int i = minValue; i <= maxValue; i += step) {
 			
 			yLabelRect.left = 0;
-			yLabelRect.top = minValuePointY - 10;
-			yLabelRect.right = DensityUtil.dip2px(getContext(), 25);
-			yLabelRect.bottom = minValuePointY + 10;
+			yLabelRect.right = borderWidth;
+			
+			if(i == minValue){
+				yLabelRect.top = minValuePointY - DensityUtil.dip2px(getContext(), 12);
+				yLabelRect.bottom = minValuePointY - DensityUtil.dip2px(getContext(), 6);
+			} else {
+				yLabelRect.top = minValuePointY - DensityUtil.dip2px(getContext(), 10);
+				yLabelRect.bottom = minValuePointY + DensityUtil.dip2px(getContext(), 10);
+			}
+			
+			if(i == maxValue) {
+				yLabelRect.top = minValuePointY + DensityUtil.dip2px(getContext(), 6);
+				yLabelRect.bottom = minValuePointY + DensityUtil.dip2px(getContext(), 12);
+			}
 			
 			// draw mesh
-			canvas.drawLine(borderWidth, minValuePointY, chartHeight, minValuePointY, meshPaint);
+			canvas.drawLine(borderWidth, minValuePointY, chartWidth, minValuePointY, meshPaint);
 			
 			drawTextInCenter(canvas, yAxisLabelPaint, yLabelRect,String.valueOf(i));
 			
@@ -360,24 +413,27 @@ public class LineChart extends View {
 		int zeroY = chartHeight - chartHeight * -minValue
 				/ (maxValue - minValue);
 		
-		if (datas.size() <= 0) {
-			return;
-		}
-
-		ArrayList<LineData> lineDatas = datas.get(0);
-		int lineDataSize = lineDatas.size();
 		int xLabelsSize = xLabels.size();
+		
+		int unit = (chartWidth - borderWidth) / showPointNum;
+		
+		for (int i = 0; i < xLabelsSize ; i++) {
 
-		for (int i = 0; i < lineDataSize ; i++) {
-
-			LineData lineData = lineDatas.get(i);
-
-			int leftTopX = lineData.point.x
-					- DensityUtil.dip2px(getContext(), 15) + moveOffset;
+			int leftTopX = 0;
+			if(i == 0){
+				leftTopX = borderWidth +  moveOffset;
+			} else {
+				leftTopX = i * unit + borderWidth - DensityUtil.dip2px(getContext(), 15) + moveOffset;
+			}
+			
 			int leftTopY = zeroY + DensityUtil.dip2px(getContext(), 10);
-
-			int rightBottomX = lineData.point.x
-					+ DensityUtil.dip2px(getContext(), 15) + moveOffset;
+			int rightBottomX;
+			if(i == xLabelsSize - 1){
+				rightBottomX = i * unit + borderWidth - getXLabelWidth(xLabels.get(i)) + moveOffset;
+			} else {
+				rightBottomX = i * unit + borderWidth + moveOffset;
+			}
+			
 			int rightBottomY = zeroY + DensityUtil.dip2px(getContext(), 20);
 
 			xLabelRect.left = leftTopX;
@@ -385,14 +441,16 @@ public class LineChart extends View {
 			xLabelRect.right = rightBottomX;
 			xLabelRect.bottom = rightBottomY;
 			
-			if(lineDataSize <= xLabelsSize){
+			if(i == 0){
+				drawTextInCenter(canvas, xAxisLabelPaint, xLabelRect, xLabels.get(i), borderWidth + DensityUtil.dip2px(getContext(),15) + moveOffset);
+			} else {
 				drawTextInCenter(canvas, xAxisLabelPaint, xLabelRect, xLabels.get(i));
 			}
 			
 			// draw mesh
 			if(i == 0)
 				continue;
-			canvas.drawLine(lineData.point.x, 0, lineData.point.x, chartHeight, meshPaint);
+			canvas.drawLine(i * unit + borderWidth + moveOffset, 0, i * unit + borderWidth + moveOffset, chartHeight, meshPaint);
 			
 		}
 	}
@@ -429,13 +487,24 @@ public class LineChart extends View {
 		canvas.drawText(xVal, targetRect.centerX(), baseline, paint);
 
 	}
+	
+	public void drawTextInCenter(Canvas canvas, Paint paint, Rect targetRect,
+			String xVal, int x) {
+
+		FontMetricsInt fontMetrics = paint.getFontMetricsInt();
+
+		// Referenced from http://blog.csdn.net/hursing
+		int baseline = targetRect.top
+				+ (targetRect.bottom - targetRect.top - fontMetrics.bottom + fontMetrics.top)
+				/ 2 - fontMetrics.top;
+		paint.setTextAlign(Paint.Align.CENTER);
+		canvas.drawText(xVal, x, baseline, paint);
+
+	}
 
 	public Point getLastPoint() {
-		for (int i = 0; i < datas.size(); i++) {
-			ArrayList<LineData> lineDatas = datas.get(i);
-			if (lineDatas.size() > 0) {
-				return lineDatas.get(lineDatas.size() - 1).point;
-			}
+		if(xPoints.size() > 0){
+			return xPoints.get(xPoints.size() - 1);
 		}
 		return null;
 	}
@@ -488,7 +557,6 @@ public class LineChart extends View {
 			}
 			break;
 		}
-
 		return true;
 	}
 	
@@ -509,8 +577,8 @@ public class LineChart extends View {
 			
 			for(int j=0; j<lineDatas.size(); j++){
 				LineData data = lineDatas.get(j);
-				if(Math.abs(data.point.x + moveOffset - point.x) < 20 
-						&& Math.abs(data.point.y - point.y) < 20){
+				if(Math.abs(data.point.x + moveOffset - point.x) < 30 
+						&& Math.abs(data.point.y - point.y) < 30){
 					
 					PointInfo info = new PointInfo();
 					info.lineId = i;
@@ -524,5 +592,18 @@ public class LineChart extends View {
 		
 		return null;
 	}
+	
+	public int getYLabelWidth(){
+		
+		int maxLabelWidth = (int)yAxisLabelPaint.measureText(maxValue + "");
+		int minLableWidth = (int)yAxisLabelPaint.measureText(minValue + "");
+		 
+		return maxLabelWidth > minLableWidth ? maxLabelWidth : minLableWidth;
+	}
+	
+	public int getXLabelWidth(String text){
+		return (int)xAxisLabelPaint.measureText(text);
+	}
+
 	
 }
