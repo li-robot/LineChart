@@ -2,8 +2,6 @@ package com.robot.widget;
 
 import java.util.ArrayList;
 
-import com.uzmap.pkg.uzmodules.uzbrokenLine.utils.XLabels;
-
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
